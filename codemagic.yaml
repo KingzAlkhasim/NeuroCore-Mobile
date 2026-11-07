@@ -1,0 +1,33 @@
+workflows:
+  neurocore-debug-apk:
+    name: NeuroCore debug APK
+    # Mac M2 machines are the ones covered by Codemagic's free monthly minutes.
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      java: 17
+    scripts:
+      # Phone-friendly: upload NeuroCore-Mobile.zip to the repo root and it is unpacked here.
+      - name: Use uploaded source zip (if present)
+        script: |
+          if [ -f NeuroCore-Mobile.zip ]; then
+            rm -rf /tmp/src && mkdir /tmp/src
+            unzip -q NeuroCore-Mobile.zip -d /tmp/src
+            shopt -s dotglob
+            cp -R /tmp/src/NeuroCore-Mobile/* .
+            rm -f NeuroCore-Mobile.zip
+          fi
+          chmod +x gradlew scripts/setup.sh
+      - name: Point Gradle at the Android SDK
+        script: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/local.properties"
+      - name: Install NDK and CMake
+        script: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "ndk;27.0.12077973" "cmake;3.22.1"
+      - name: Fetch llama.cpp
+        script: ./scripts/setup.sh
+      - name: Build debug APK
+        script: ./gradlew --no-daemon assembleDebug
+    artifacts:
+      - app/build/outputs/apk/debug/*.apk
