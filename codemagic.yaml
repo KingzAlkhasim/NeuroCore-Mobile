@@ -16,13 +16,31 @@ workflows:
             rm -f NeuroCore-Mobile.zip
           fi
           chmod +x gradlew scripts/setup.sh
-      - name: Point Gradle at the Android SDK
+      - name: Set up Android SDK, NDK and CMake
         script: |
-          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/local.properties"
-      - name: Install NDK and CMake
-        script: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager "ndk;27.0.12077973" "cmake;3.22.1"
+          SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/Library/Android/sdk}}"
+          echo "SDK location: $SDK"
+          mkdir -p "$SDK"
+          echo "sdk.dir=$SDK" > "$CM_BUILD_DIR/local.properties"
+          SDKM="$(command -v sdkmanager || true)"
+          if [ -z "$SDKM" ]; then
+            for c in "$SDK/cmdline-tools/latest/bin/sdkmanager" "$SDK/tools/bin/sdkmanager"; do
+              if [ -x "$c" ]; then SDKM="$c"; break; fi
+            done
+          fi
+          if [ -z "$SDKM" ]; then
+            echo "sdkmanager not found, downloading Android command-line tools"
+            curl -sL -o /tmp/cmdtools.zip https://dl.google.com/android/repository/commandlinetools-mac-11076708_latest.zip
+            rm -rf /tmp/cmdtools && mkdir /tmp/cmdtools
+            unzip -q /tmp/cmdtools.zip -d /tmp/cmdtools
+            mkdir -p "$SDK/cmdline-tools"
+            rm -rf "$SDK/cmdline-tools/latest"
+            mv /tmp/cmdtools/cmdline-tools "$SDK/cmdline-tools/latest"
+            SDKM="$SDK/cmdline-tools/latest/bin/sdkmanager"
+          fi
+          echo "Using $SDKM"
+          yes | "$SDKM" --sdk_root="$SDK" --licenses > /dev/null || true
+          "$SDKM" --sdk_root="$SDK" "ndk;27.0.12077973" "cmake;3.22.1" "platforms;android-35" "build-tools;34.0.0"
       - name: Fetch llama.cpp
         script: ./scripts/setup.sh
       - name: Build debug APK
