@@ -1,13 +1,11 @@
 workflows:
   neurocore-debug-apk:
     name: NeuroCore debug APK
-    # Mac M2 machines are the ones covered by Codemagic's free monthly minutes.
     instance_type: mac_mini_m2
     max_build_duration: 60
     environment:
       java: 17
     scripts:
-      # Phone-friendly: upload NeuroCore-Mobile.zip to the repo root and it is unpacked here.
       - name: Use uploaded source zip (if present)
         script: |
           if [ -f NeuroCore-Mobile.zip ]; then
